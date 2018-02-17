@@ -61,6 +61,7 @@ export interface AngularCompilerPluginOptions {
   entryModule?: string | string[];
   mainPath?: string;
   skipCodeGeneration?: boolean;
+  skipDecoratorRemoval?: boolean;
   hostReplacementPaths?: { [path: string]: string };
   // TODO: remove singleFileIncludes for 2.0, this is just to support old projects that did not
   // include 'polyfills.ts' in `tsconfig.spec.json'.
@@ -103,6 +104,7 @@ export class AngularCompilerPlugin implements Tapable {
   private _platform: PLATFORM;
   private _JitMode = false;
   private _emitSkipped = true;
+  private _skipDecoratorRemoval = false;
   private _changedFileExtensions = new Set(['ts', 'html', 'css']);
 
   // Webpack plugin.
@@ -217,6 +219,11 @@ export class AngularCompilerPlugin implements Tapable {
     // Set JIT (no code generation) or AOT mode.
     if (options.skipCodeGeneration !== undefined) {
       this._JitMode = options.skipCodeGeneration;
+    }
+
+    // Disable decorator removal, allows JIT components in AOT builds
+    if (options.skipDecoratorRemoval !== undefined) {
+      this._skipDecoratorRemoval = options.skipDecoratorRemoval;
     }
 
     // Process i18n options.
@@ -726,7 +733,9 @@ export class AngularCompilerPlugin implements Tapable {
       this._transformers.push(replaceResources(isAppPath));
     } else {
       // Remove unneeded angular decorators.
-      this._transformers.push(removeDecorators(isAppPath, getTypeChecker));
+      if (!this._skipDecoratorRemoval) {
+        this._transformers.push(removeDecorators(isAppPath, getTypeChecker));
+      }
     }
 
     if (this._platform === PLATFORM.Browser) {
